@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 상담 챗봇</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .chat-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        .chat-box {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        .input-group {
+            display: flex;
+            justify-content: space-between;
+        }
+        .input-group input {
+            width: 80%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .input-group button {
+            width: 18%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .input-group button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>AI 상담 챗봇</h1>
+        <div class="chat-box" id="chat-box"></div>
+        <div class="input-group">
+            <input type="text" id="user-input" placeholder="상담 내용을 입력하세요" onkeypress="handleKeyPress(event)">
+            <button onclick="getResponse()">전송</button>
+        </div>
+    </div>
+
+    <script>
+        let conversations = [];
+
+        async function loadConversations() {
+            const response = await fetch('conversations.json');
+            conversations = await response.json();
+        }
+
+        function findBestMatch(userInput) {
+            let bestMatch = null;
+            let highestSimilarity = 0;
+
+            conversations.forEach(conversation => {
+                const similarity = stringSimilarity(userInput, conversation.상담내용);
+                if (similarity > highestSimilarity) {
+                    highestSimilarity = similarity;
+                    bestMatch = conversation;
+                }
+            });
+
+            return bestMatch;
+        }
+
+        function stringSimilarity(s1, s2) {
+            const longer = s1.length > s2.length ? s1 : s2;
+            const shorter = s1.length > s2.length ? s2 : s1;
+            const longerLength = longer.length;
+            if (longerLength === 0) {
+                return 1.0;
+            }
+            return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+        }
+
+        function editDistance(s1, s2) {
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+
+            const costs = [];
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i === 0) {
+                        costs[j] = j;
+                    } else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            }
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) {
+                    costs[s2.length] = lastValue;
+                }
+            }
+            return costs[s2.length];
+        }
+
+        async function getResponse() {
+            const userInput = document.getElementById('user-input').value;
+            if (!userInput.trim()) return;
+
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML += `<p><strong>사용자:</strong> ${userInput}</p>`;
+
+            const bestMatch = findBestMatch(userInput);
+
+            if (bestMatch) {
+                chatBox.innerHTML += `<p><strong>챗봇:</strong> ${bestMatch.답변내용}</p>`;
+            } else {
+                chatBox.innerHTML += `<p><strong>챗봇:</strong> 죄송합니다, 이해하지 못했습니다.</p>`;
+            }
+
+            document.getElementById('user-input').value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                getResponse();
+            }
+        }
+
+        window.onload = loadConversations;
+    </script>
+</body>
+</html>
